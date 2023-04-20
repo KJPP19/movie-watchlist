@@ -51,6 +51,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
         for available_movie_data in available_movies_data:
+
             try:
                 available_movie = AvailablePlatformsMovie.objects.get(title=available_movie_data['title'])
                 if available_movie in available_movies:
@@ -66,6 +67,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
         for available_movie_data in available_movies_data:
+
             try:
                 available_movie = AvailablePlatformsMovie.objects.get(title=available_movie_data['title'])
                 if available_movie in available_movies:
