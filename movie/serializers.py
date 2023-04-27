@@ -51,6 +51,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
         for available_movie_data in available_movies_data:
+
             try:
                 available_movie = AvailablePlatformsMovie.objects.get(title=available_movie_data['title'])
                 if available_movie in available_movies:
@@ -66,6 +67,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
         for available_movie_data in available_movies_data:
+
             try:
                 available_movie = AvailablePlatformsMovie.objects.get(title=available_movie_data['title'])
                 if available_movie in available_movies:
@@ -113,6 +115,8 @@ class MovieSerializer(serializers.ModelSerializer):
 
             try:
                 genre = Genre.objects.get(name=genre_data['name'])
+                if genre in genres:
+                    raise serializers.ValidationError('genre was already added to this movie')
             except Genre.DoesNotExist:
                 raise serializers.ValidationError("invalid Genre")
             genres.append(genre)
@@ -151,6 +155,8 @@ class MovieSerializer(serializers.ModelSerializer):
 
             try:
                 genre = Genre.objects.get(name=genre_data['name'])
+                if genre in genres:
+                    raise serializers.ValidationError("genre was already added to this movie")
             except Genre.DoesNotExist:
                 raise serializers.ValidationError("invalid Genre")
             genres.append(genre)
@@ -184,9 +190,20 @@ class WatchListSerializer(serializers.ModelSerializer):
 
 class MovieReviewSerializer(serializers.ModelSerializer):
     movie = serializers.StringRelatedField()
+    reviewed_by = serializers.StringRelatedField()
 
     class Meta:
         model = MovieReview
-        fields = ['id', 'movie', 'review']
+        fields = ['id', 'reviewed_by', 'movie', 'review', 'rating']
+        extra_kwargs = {
+            'reviewed_by': {'required': False}
+        }
+
+    def validate(self, data):
+        if data['rating'] > 5 or data['rating'] < 1:
+            raise serializers.ValidationError("rating must not exceed to 5 and not less than 1")
+        if len(data['review']) < 10:
+            raise serializers.ValidationError("review should have at least 10 characters")
+        return data
 
 

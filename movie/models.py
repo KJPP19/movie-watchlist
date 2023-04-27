@@ -46,14 +46,15 @@ class WatchList(models.Model):
     added_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.movie
+        return self.movie.title
 
 
 class MovieReview(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    reviewed_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    rating = models.IntegerField()
     review = models.TextField()
     added_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.movie
+        return self.movie.title

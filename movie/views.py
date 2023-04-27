@@ -198,11 +198,20 @@ class WatchListDetail(APIView):
 
     def put(self, request, pk):
         watchlist_item = get_object_or_404(WatchList, user=request.user, pk=pk)
+        movie_title = request.data.get('movie_title', watchlist_item.movie.title)
+        if WatchList.objects.filter(movie__title=movie_title, user=request.user).exclude(pk=pk).exists():
+            return Response({'message': 'this movie already exist'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            movie = Movie.objects.get(title=movie_title)
+        except Movie.DoesNotExist:
+            return Response({'message': 'movie does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = WatchListSerializer(watchlist_item, data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user)
+            serializer.save(user=request.user, movie=movie)
             return Response({'message': 'watchlist updated'}, status=status.HTTP_200_OK)
         except serializers.ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -225,17 +234,17 @@ class ReviewsAPI(ListAPIView):
     serializer_class = MovieReviewSerializer
     pagination_class = PageNumberPagination
     filter_backends = (SearchFilter, OrderingFilter)
-    search_fields = ['movie__title']
+    search_fields = ['movie__title', 'review', 'reviewed_by__email']
 
 
 class ReviewMovieAPI(APIView):
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsReviewer]
+    permission_classes = [IsAuthenticated, IsReviewer | IsWatcher]
 
     def post(self, request):
         movie_title = request.data.get('movie_title')
-        if MovieReview.objects.filter(movie__title=movie_title, user=request.user).exists():
+        if MovieReview.objects.filter(movie__title=movie_title, reviewed_by=request.user).exists():
             return Response({'message': 'movie already exist in your review'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -246,7 +255,7 @@ class ReviewMovieAPI(APIView):
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user, movie=movie)
+            serializer.save(reviewed_by=request.user, movie=movie)
             return Response({'message': 'review for the movie has been added'}, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -267,15 +276,15 @@ class ReviewDetailPutDelete(APIView):
     """reviewer only have the permission to PUT and DELETE review"""
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsReviewer]
+    permission_classes = [IsAuthenticated, IsReviewer | IsWatcher]
 
     def put(self, request, pk):
-        review = get_object_or_404(MovieReview, user=request.user, pk=pk)
+        review = get_object_or_404(MovieReview, reviewed_by=request.user, pk=pk)
         serializer = MovieReviewSerializer(review, data=request.data)
 
         try:
-            serializer.is_valid()
-            serializer.save(user=request.user)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(reviewed_by=request.user)
             return Response({'message': 'review updated'}, status=status.HTTP_200_OK)
         except serializers.ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -283,7 +292,7 @@ class ReviewDetailPutDelete(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, pk):
-        review = get_object_or_404(MovieReview, user=request.user, pk=pk)
+        review = get_object_or_404(MovieReview, reviewed_by=request.user, pk=pk)
 
         try:
             review.delete()

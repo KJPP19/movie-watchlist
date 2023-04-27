@@ -15,7 +15,7 @@ class StreamPlatformItemAdmin(admin.ModelAdmin):
 
 
 class MovieReviewItemAdmin(admin.ModelAdmin):
-    list_display = ["movie", "user", "added_at"]
+    list_display = ["movie", "reviewed_by", "added_at"]
 
 
 admin.site.register(Genre)

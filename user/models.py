@@ -3,9 +3,6 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 
 
-# Custom User Model allows to create user roles (watcher, reviewer, visitor, admin)
-
-
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password, **extra_fields):
         # email will be the login credential, initially it was username.
