@@ -7,16 +7,23 @@ from .models import CustomUser
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from rest_framework import serializers
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 
 class RegisterAPI(APIView):
 
-    # get method is used to verify and check registered account, this can be removed.
     def get(self, request):
         users = CustomUser.objects.all()
         serializer = CustomUserSerializer(users, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(request_body=CustomUserSerializer,
+                         operation_summary="This endpoint creates a new user",
+                         operation_description="user role choices are watcher, reviewer, visitor",
+                         responses={
+                             status.HTTP_201_CREATED: openapi.Response(description="account created successfully"),
+                             status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def post(self, request):
         serializer = CustomUserSerializer(data=request.data)
         try:
@@ -31,6 +38,12 @@ class RegisterAPI(APIView):
 
 class LogInAPI(APIView):
 
+    @swagger_auto_schema(request_body=LogInUserSerializer,
+                         operation_summary="This endpoint generates token to a specific user",
+                         operation_description="registered email and password is the required credentials",
+                         responses={
+                             status.HTTP_201_CREATED: openapi.Response(description="Token generated successfully"),
+                             status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def post(self, request):
         serializer = LogInUserSerializer(data=request.data)
         if serializer.is_valid():
