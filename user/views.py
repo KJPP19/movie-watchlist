@@ -13,6 +13,7 @@ from drf_yasg import openapi
 
 class RegisterAPI(APIView):
 
+    @swagger_auto_schema(operation_summary="fetch registered user")
     def get(self, request):
         users = CustomUser.objects.all()
         serializer = CustomUserSerializer(users, many=True)
@@ -39,11 +40,11 @@ class RegisterAPI(APIView):
 class LogInAPI(APIView):
 
     @swagger_auto_schema(request_body=LogInUserSerializer,
-                         operation_summary="This endpoint generates token to a specific user",
+                         operation_summary="This endpoint generates token to a specific registered user",
                          operation_description="registered email and password is the required credentials",
                          responses={
-                             status.HTTP_201_CREATED: openapi.Response(description="Token generated successfully"),
-                             status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
+                             status.HTTP_200_OK: openapi.Response(description="Token generated successfully"),
+                             status.HTTP_404_NOT_FOUND: openapi.Response(description="credentials is incorrect")})
     def post(self, request):
         serializer = LogInUserSerializer(data=request.data)
         if serializer.is_valid():
@@ -51,6 +52,7 @@ class LogInAPI(APIView):
             if not user:
                 return Response({'message': 'invalid email and password'}, status=status.HTTP_404_NOT_FOUND)
             token = Token.objects.get_or_create(user=user)
-            return Response({'message': 'successfully logged in', 'token': user.auth_token.key}, status=status.HTTP_200_OK)
+            return Response({'message': 'successfully logged in', 'token': user.auth_token.key},
+                            status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

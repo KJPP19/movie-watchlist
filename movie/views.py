@@ -190,6 +190,8 @@ class WatchListAPI(ListAPIView):
     filter_backends = (SearchFilter, OrderingFilter)
     search_fields = ['movie__title']
 
+    @swagger_auto_schema(operation_summary="fetch watchlist based on the token provided",
+                         operation_description="each watcher user has their own watchlist")
     def get_queryset(self):
         return WatchList.objects.filter(user=self.request.user)
 
