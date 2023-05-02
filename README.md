@@ -18,3 +18,4 @@ OJT watchlist project (Questronix)
 1. Create superuser using '**python3 manage.py createsuperuser**'
 2. Start server using '**python3 manage.py runserver**'
 3. Use '**Postman**' or other tools to interact with the endpoints
+4. Access swagger documentation after starting the server using '**'your-localhost'/swagger/**'
