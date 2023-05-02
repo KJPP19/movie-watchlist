@@ -44,6 +44,44 @@ class GenreListCreateAPI(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class GenreDetail(APIView):
+    def get(self, request, pk):
+        genre_item = get_object_or_404(Genre, pk=pk)
+        serializer = GenreSerializer(genre_item, data=request.data)
+        return Response(serializer.data)
+
+    @swagger_auto_schema(request_body=GenreSerializer,
+                         operation_summary="update existing genre",
+                         operation_description="update the genre name, raise error to prevent duplicates",
+                         responses={status.HTTP_201_CREATED: openapi.Response(description="genre updated"),
+                                    status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
+    def put(self, request, pk):
+        genre_item = get_object_or_404(Genre, pk=pk)
+        genre_name = request.data.get('name')
+        if Genre.objects.filter(name=genre_name).exclude(pk=pk).exists():
+            return Response({'message': 'genre already exist'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GenreSerializer(genre_item, data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'message': 'genre updated'}, status=status.HTTP_201_CREATED)
+        except serializers.ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(operation_summary="delete specific genre")
+    def delete(self, request, pk):
+        genre_item = get_object_or_404(Genre, pk=pk)
+
+        try:
+            genre_item.delete()
+            return Response({'message': 'genre deleted'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class StreamPlatformAPI(APIView):
     @swagger_auto_schema(operation_summary="fetch the list of streaming platforms in database",
                          responses={status.HTTP_200_OK: openapi.Response(description="fetched successfully")})
