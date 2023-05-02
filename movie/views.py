@@ -17,6 +17,7 @@ from drf_yasg import openapi
 
 
 class GenreListCreateAPI(APIView):
+
     @swagger_auto_schema(operation_summary="fetch the list of genre in the database",
                          responses={status.HTTP_200_OK: openapi.Response(description="successfully fetched")})
     def get(self, request):
@@ -45,6 +46,8 @@ class GenreListCreateAPI(APIView):
 
 
 class GenreDetail(APIView):
+
+    @swagger_auto_schema(operation_summary="fetch specific genre")
     def get(self, request, pk):
         genre_item = get_object_or_404(Genre, pk=pk)
         serializer = GenreSerializer(genre_item, data=request.data)
@@ -83,6 +86,7 @@ class GenreDetail(APIView):
 
 
 class StreamPlatformAPI(APIView):
+
     @swagger_auto_schema(operation_summary="fetch the list of streaming platforms in database",
                          responses={status.HTTP_200_OK: openapi.Response(description="fetched successfully")})
     def get(self, request):
@@ -112,6 +116,7 @@ class StreamPlatformAPI(APIView):
 
 
 class StreamPlatformDetail(APIView):
+
     @swagger_auto_schema(operation_summary="fetch specific streaming platform")
     def get(self, request, pk):
         stream_platform = get_object_or_404(StreamPlatform, pk=pk)
@@ -149,11 +154,16 @@ class StreamPlatformDetail(APIView):
 
 
 class MovieListAPI(ListAPIView):
+
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
     pagination_class = PageNumberPagination
     filter_backends = (SearchFilter, OrderingFilter)
     search_fields = ('title', 'genre__name', 'stream_platform__name')
+
+    @swagger_auto_schema(operation_summary="Fetch list of movies in the database")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class MovieCreateAPI(APIView):
@@ -197,8 +207,10 @@ class MovieDetail(APIView):
                          responses={status.HTTP_201_CREATED: openapi.Response(description="movie updated"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def put(self, request, pk):
-        movie = get_object_or_404(Movie, pk=pk)
-        serializer = MovieSerializer(movie, data=request.data)
+        movie_title = get_object_or_404(Movie, pk=pk)
+        if Movie.objects.filter(title=movie_title).exclude(pk=pk).exists():
+            return Response({'message': 'movie title already exist'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = MovieSerializer(movie_title, data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
@@ -221,6 +233,7 @@ class MovieDetail(APIView):
 
 
 class WatchListAPI(ListAPIView):
+
     serializer_class = WatchListSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsWatcher]
@@ -228,10 +241,12 @@ class WatchListAPI(ListAPIView):
     filter_backends = (SearchFilter, OrderingFilter)
     search_fields = ['movie__title']
 
-    @swagger_auto_schema(operation_summary="fetch watchlist based on the token provided",
-                         operation_description="each watcher user has their own watchlist")
     def get_queryset(self):
         return WatchList.objects.filter(user=self.request.user)
+
+    @swagger_auto_schema(operation_summary="Fetch the watchlist of a specific user based on the TOKEN provided")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class WatchListCreateAPI(APIView):
@@ -274,6 +289,7 @@ class WatchListDetail(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsWatcher]
 
+    @swagger_auto_schema(operation_summary="get specific watchlist")
     def get(self, request, pk):
         watchlist_item = get_object_or_404(WatchList, user=request.user, pk=pk)
         serializer = WatchListSerializer(watchlist_item)
@@ -326,6 +342,13 @@ class ReviewsAPI(ListAPIView):
     filter_backends = (SearchFilter, OrderingFilter)
     search_fields = ['movie__title', 'review', 'reviewed_by__email']
 
+    @swagger_auto_schema(operation_summary="Fetch list of movie reviews in the database",
+                         operation_description="This shows all the reviews made by every users, it can be filtered"
+                                               "by searching the reviewer email and it will only shows the movie"
+                                               "reviewed by a specific user")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class ReviewMovieAPI(APIView):
 
@@ -363,6 +386,7 @@ class ReviewMovieAPI(APIView):
 
 class ReviewDetail(APIView):
 
+    @swagger_auto_schema(operation_summary="fetch specific movie review")
     def get(self, request, pk):
         review = get_object_or_404(MovieReview, pk=pk)
         serializer = MovieReviewSerializer(review)
@@ -376,7 +400,8 @@ class ReviewDetailPutDelete(APIView):
 
     @swagger_auto_schema(request_body=MovieReviewSerializer,
                          operation_summary="This endpoint updates a review for specific movie",
-                         operation_description="update a movie review ",
+                         operation_description="update a movie review, IsReviewer and IsWatcher has the only permission to"
+                                               "update and delete movie reviews",
                          responses={status.HTTP_201_CREATED: openapi.Response(description="review updated"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def put(self, request, pk):
