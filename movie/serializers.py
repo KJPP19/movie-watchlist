@@ -35,6 +35,10 @@ class AvailablePlatformsMovieSerializer(serializers.ModelSerializer):
         model = AvailablePlatformsMovie
         fields = ['id', 'title']
 
+    def validate(self, data):
+        if len(data['title']) < 3:
+            raise serializers.ValidationError("title should have at least 3 characters")
+
 
 class StreamPlatformSerializer(serializers.ModelSerializer):
     available_movie = AvailablePlatformsMovieSerializer(many=True, required=False)

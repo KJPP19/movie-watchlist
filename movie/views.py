@@ -50,7 +50,7 @@ class GenreDetail(APIView):
     @swagger_auto_schema(operation_summary="fetch specific genre")
     def get(self, request, pk):
         genre_item = get_object_or_404(Genre, pk=pk)
-        serializer = GenreSerializer(genre_item, data=request.data)
+        serializer = GenreSerializer(genre_item)
         return Response(serializer.data)
 
     @swagger_auto_schema(request_body=GenreSerializer,
