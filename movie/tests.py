@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
-from .models import Genre
+from .models import Genre, StreamPlatform, AvailablePlatformsMovie
 
 
 class GenreAPITest(APITestCase):
@@ -58,7 +58,113 @@ class GenreAPITest(APITestCase):
         self.assertFalse(Genre.objects.filter(pk=self.genre.pk).exists())
 
 
+class StreamPlatformAPITest(APITestCase):
 
+    def setUp(self):
+        self.stream_platform_url = reverse('stream-platform')
+        self.stream_platform_data = {
+            "name": "Netflix",
+            "description": "popular streaming platform"
+        }
+        self.movie_data_1 = {"title": "Call"}
+        self.movie_data_2 = {"title": "Hancock"}
+        self.available_movie_1 = AvailablePlatformsMovie.objects.create(**self.movie_data_1)
+        self.available_movie_2 = AvailablePlatformsMovie.objects.create(**self.movie_data_2)
+        self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
+        self.stream_platform.available_movie.set([self.available_movie_1, self.available_movie_2])
+        self.stream_platform_detail_url = reverse('stream-platform-detail', kwargs={'pk': self.stream_platform.pk})
+
+    def test_get_all_stream_platforms(self):
+        response = self.client.get(self.stream_platform_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["name"], "Netflix")
+        self.assertEqual(response.data[0]["description"], "popular streaming platform")
+        self.assertEqual(response.data[0]["available_movie"][0]["title"], "Call")
+        self.assertEqual(response.data[0]["available_movie"][1]["title"], "Hancock")
+        self.assertIsInstance(response.data, list)
+
+    def test_create_stream_platform(self):
+        new_movie_data = {"title": "Evil Dead"}
+        available_movie_3 = AvailablePlatformsMovie.objects.create(**new_movie_data)
+        new_stream_platform_data = {
+            "name": "HBO Max",
+            "description": "another popular streaming platform",
+            "available_movie": [{"title": self.available_movie_1.title}, {"title": self.available_movie_2.title},
+                                {"title": available_movie_3.title}]
+        }
+        response = self.client.post(self.stream_platform_url, data=new_stream_platform_data, format="json")
+        # print(response.data)
+        # print(new_stream_platform_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'stream platform created')
+
+    def test_create_duplicate_stream_platform(self):
+        StreamPlatform.objects.create(name=self.stream_platform_data["name"])
+        new_movie_data = {"title": "Evil Dead"}
+        available_movie_3 = AvailablePlatformsMovie.objects.create(**new_movie_data)
+        new_stream_platform_data = {
+            "name": self.stream_platform_data["name"],
+            "description": "another popular streaming platform",
+            "available_movie": [{"title": self.available_movie_1.title}, {"title": self.available_movie_2.title},
+                                {"title": available_movie_3.title}]
+        }
+        response = self.client.post(self.stream_platform_url, data=new_stream_platform_data, format="json")
+        # print(self.stream_platform_data["name"])
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], 'stream platform already exist')
+
+    def test_create_duplicate_available_movies(self):
+        new_stream_platform_data = {
+            "name": "HBO Max",
+            "description": "another popular streaming platform",
+            "available_movie": [{"title": self.available_movie_1.title}, {"title": self.available_movie_1.title}]
+        }
+        response = self.client.post(self.stream_platform_url, data=new_stream_platform_data, format="json")
+        # print(response.data)
+        # print(new_stream_platform_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_get_one_stream_platform(self):
+        response = self.client.get(self.stream_platform_detail_url, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "Netflix")
+        self.assertEqual(response.data["description"], "popular streaming platform")
+        self.assertEqual(response.data["available_movie"][0]["title"], "Call")
+        self.assertEqual(response.data["available_movie"][1]["title"], "Hancock")
+
+    def test_update_one_stream_platform(self):
+        update_stream_platform_data = {
+            "name": "HULU",
+            "description": "another great streaming platform",
+            "available_movie": [{"title": self.available_movie_1.title}, {"title": self.available_movie_2.title}]
+        }
+        response = self.client.put(self.stream_platform_detail_url, data=update_stream_platform_data, format="json")
+        print(response.content)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'stream platform updated')
+
+    def test_update_available_movie(self):
+        update_movie_data_1 = {"title": "Equalizer"}
+        update_movie_data_2 = {"title": "Equalizer 2"}
+        update_available_movie_1 = AvailablePlatformsMovie.objects.create(**update_movie_data_1)
+        update_available_movie_2 = AvailablePlatformsMovie.objects.create(**update_movie_data_2)
+        update_stream_platform_data = {
+            "name": "HULU",
+            "description": "another great streaming platform",
+            "available_movie": [{"title": update_available_movie_1.title}, {"title": update_available_movie_2.title}]
+        }
+        response = self.client.put(self.stream_platform_detail_url, data=update_stream_platform_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'stream platform updated')
+
+    def test_delete_one_stream_platform(self):
+        response = self.client.delete(self.stream_platform_detail_url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.data['message'], 'stream platform deleted')
+        self.assertFalse(StreamPlatform.objects.filter(pk=self.stream_platform.pk).exists())
 
 
 

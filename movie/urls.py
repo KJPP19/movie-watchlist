@@ -6,8 +6,8 @@ from .views import GenreListCreateAPI, GenreDetail, MovieCreateAPI, MovieDetail,
 
 
 urlpatterns = [
-    path('stream-platform/', StreamPlatformAPI.as_view()),
-    path('stream-platform/<int:pk>/', StreamPlatformDetail.as_view()),
+    path('stream-platform/', StreamPlatformAPI.as_view(), name='stream-platform'),
+    path('stream-platform/<int:pk>/', StreamPlatformDetail.as_view(), name='stream-platform-detail'),
     path('genre/', GenreListCreateAPI.as_view(), name='genre-list'),
     path('genre-detail/<int:pk>/', GenreDetail.as_view(), name='genre-detail'),
     path('movie/', MovieCreateAPI.as_view()),

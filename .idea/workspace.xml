@@ -6,7 +6,6 @@
       <change beforePath="$PROJECT_DIR$/movie/serializers.py" beforeDir="false" afterPath="$PROJECT_DIR$/movie/serializers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/movie/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/movie/tests.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/movie/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/movie/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/movie/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/movie/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -96,7 +95,8 @@
       <workItem from="1682644715023" duration="18778000" />
       <workItem from="1682940769151" duration="2955000" />
       <workItem from="1682988039478" duration="7425000" />
-      <workItem from="1683161029646" duration="11425000" />
+      <workItem from="1683161029646" duration="16528000" />
+      <workItem from="1683247848867" duration="12317000" />
     </task>
     <servers />
   </component>
