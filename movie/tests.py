@@ -182,15 +182,10 @@ class StreamPlatformAPITest(APITestCase):
         self.assertFalse(StreamPlatform.objects.filter(pk=self.stream_platform.pk).exists())
 
 
-class MovieAPITest(APITestCase):
+class MovieRetrieveAPITest(APITestCase):
 
     def setUp(self):
         self.movie_url = reverse('movie-list')
-        self.movie_create_url = reverse('movie-create')
-        self.stream_platform_data = {
-            "name": "Netflix",
-            "description": "popular streaming platform"
-        }
         self.movie_data = {
             "title": "call",
             "synopsis": "plot twist movie",
@@ -199,15 +194,11 @@ class MovieAPITest(APITestCase):
         self.genre_data_1 = {"name": "thriller"}
         self.genre_data_2 = {"name": "horror"}
         self.stream_platform_data_1 = {"name": "Netflix"}
-        self.available_movie_data_1 = {"title": "Conjuring"}
         self.genre_1 = Genre.objects.create(**self.genre_data_1)
         self.genre_2 = Genre.objects.create(**self.genre_data_2)
         self.stream_platform_1 = StreamPlatform.objects.create(**self.stream_platform_data_1)
-        self.available_movie_1 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_1)
         self.movie = Movie.objects.create(**self.movie_data)
-        self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
         self.movie.genre.set([self.genre_1, self.genre_2])
-        self.stream_platform.available_movie.set([self.available_movie_1])
         self.movie.stream_platform.set([self.stream_platform_1])
 
     def test_get_all_movies(self):
@@ -222,15 +213,7 @@ class MovieAPITest(APITestCase):
         self.assertEqual(response.data['results'][0]["genre"][1]["name"], "horror")
 
     def test_create_movie(self):
-        new_movie_data = {
-            "title": "Conjuring",
-            "genre": [{"name": self.genre_1.name}, {"name": self.genre_2.name}],
-            "synopsis": "based on real life story",
-            "runtime": 130,
-            "stream_platform": [{"name": self.stream_platform_1.name}]
-        }
-        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
-        print(response.data)
+        pass
 
     def test_get_one_movie(self):
         pass
@@ -241,6 +224,90 @@ class MovieAPITest(APITestCase):
     def test_delete_one_movie(self):
         pass
 
+
+class MovieCreateAPITest(APITestCase):
+
+    def setUp(self):
+        self.movie_create_url = reverse('movie-create')
+        self.stream_platform_data = {
+            "name": "Netflix",
+            "description": "popular streaming platform"
+        }
+        self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
+        self.available_movie_data_1 = {"title": "Conjuring"}
+        self.available_movie_data_2 = {"title": "Call"}
+        self.available_movie_data_3 = {"title": "Murder Mystery"}
+        self.available_movie_1 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_1)
+        self.available_movie_2 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_2)
+        self.available_movie_3 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_3)
+        self.stream_platform.available_movie.set([self.available_movie_1, self.available_movie_2,
+                                                  self.available_movie_3])
+
+        self.movie_data = {
+            "title": "Call",
+            "synopsis": "plot twist movie",
+            "runtime": 147
+        }
+        self.genre_data_1 = {"name": "thriller"}
+        self.genre_data_2 = {"name": "horror"}
+        self.genre_data_3 = {"name": "comedy"}
+        self.genre_1 = Genre.objects.create(**self.genre_data_1)
+        self.genre_2 = Genre.objects.create(**self.genre_data_2)
+        self.genre_3 = Genre.objects.create(**self.genre_data_3)
+        self.movie = Movie.objects.create(**self.movie_data)
+        self.movie.genre.set([self.genre_1, self.genre_2, self.genre_3])
+        self.movie.stream_platform.set([self.stream_platform])
+
+    def test_create_valid_movie(self):
+        new_movie_data = {
+            "title": self.available_movie_1.title,
+            "synopsis": "plot twist movie",
+            "runtime": 147,
+            "genre": [
+                {"name": self.genre_1.name},
+                {"name": self.genre_2.name}
+            ],
+            "stream_platform": [
+                {"name": self.stream_platform.name}
+            ]
+        }
+        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
+        # print(response.content)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'movie created')
+
+    def test_create_invalid_movie(self):
+        new_movie_data = {
+            "title": "Hangover",
+            "synopsis": "The Hangover is a trilogy of American "
+                        "comedy films created by Jon Lucas and Scott Moore, and directed by Todd Phillips. ",
+            "runtime": 130,
+            "genre": [
+                {"name": self.genre_3.name}
+            ],
+            "stream_platform": [
+                {"name": self.stream_platform.name}
+            ]
+        }
+        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_movie_invalid_stream_platform(self):
+        new_movie_data = {
+            "title": self.available_movie_3.title,
+            "synopsis": "plot twist, twist and turns",
+            "runtime": 120,
+            "genre": [
+                {"name": self.genre_3.name}
+            ],
+            "stream_platform": [
+                {"name": "HBO max"}
+            ]
+        }
+        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 
