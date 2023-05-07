@@ -309,6 +309,21 @@ class MovieCreateAPITest(APITestCase):
         # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_movie_invalid_genre(self):
+        new_movie_data = {
+            "title": self.available_movie_3.title,
+            "synopsis": "plot twist, twist and turns",
+            "runtime": 120,
+            "genre": [
+                {"name": "documentary"}
+            ],
+            "stream_platform": [
+                {"name": self.stream_platform.name}
+            ]
+        }
+        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 
