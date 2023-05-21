@@ -200,6 +200,7 @@ class MovieRetrieveAPITest(APITestCase):
         self.movie = Movie.objects.create(**self.movie_data)
         self.movie.genre.set([self.genre_1, self.genre_2])
         self.movie.stream_platform.set([self.stream_platform_1])
+        self.movie_detail_url = reverse('movie-detail', kwargs={'pk': self.movie.pk})
 
     def test_get_all_movies(self):
         response = self.client.get(self.movie_url, format="json")
@@ -212,17 +213,15 @@ class MovieRetrieveAPITest(APITestCase):
         self.assertEqual(response.data['results'][0]["genre"][0]["name"], "thriller")
         self.assertEqual(response.data['results'][0]["genre"][1]["name"], "horror")
 
-    def test_create_movie(self):
-        pass
-
     def test_get_one_movie(self):
-        pass
-
-    def test_update_one_movie(self):
-        pass
-
-    def test_delete_one_movie(self):
-        pass
+        response = self.client.get(self.movie_detail_url, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], "call")
+        self.assertEqual(response.data["synopsis"], "plot twist movie")
+        self.assertEqual(response.data["runtime"], 147)
+        self.assertEqual(response.data["genre"][0]["name"], "thriller")
+        self.assertEqual(response.data["genre"][1]["name"], "horror")
 
 
 class MovieCreateAPITest(APITestCase):
@@ -233,10 +232,10 @@ class MovieCreateAPITest(APITestCase):
             "name": "Netflix",
             "description": "popular streaming platform"
         }
-        self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
         self.available_movie_data_1 = {"title": "Conjuring"}
         self.available_movie_data_2 = {"title": "Call"}
         self.available_movie_data_3 = {"title": "Murder Mystery"}
+        self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
         self.available_movie_1 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_1)
         self.available_movie_2 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_2)
         self.available_movie_3 = AvailablePlatformsMovie.objects.create(**self.available_movie_data_3)
@@ -324,6 +323,19 @@ class MovieCreateAPITest(APITestCase):
         response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
         # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-
+    
+    def test_create_movie_less_than_3_characters(self):
+        new_movie_data = {
+            "title": "ui",
+            "synopsis": "sample plot of the movie",
+            "runtime": 130,
+            "genre": [
+                {"name": self.genre_1.name}
+            ],
+            "stream_platform": [
+                {"name": self.stream_platform.name}
+            ]
+        }
+        response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

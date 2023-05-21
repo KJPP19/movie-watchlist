@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from .models import Genre, Movie, WatchList, MovieReview, StreamPlatform
 from .serializers import GenreSerializer, MovieSerializer, WatchListSerializer, MovieReviewSerializer, \
-    StreamPlatformSerializer, IsWatcher, IsReviewer
+    StreamPlatformSerializer, MovieListSerializer, IsWatcher, IsReviewer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
@@ -30,17 +30,14 @@ class GenreListCreateAPI(APIView):
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")},
                          operation_summary="This endpoint creates a new genre in the database")
     def post(self, request):
-        genre_name = request.data.get('name')
-        if Genre.objects.filter(name=genre_name).exists():
-            return Response({'message': 'genre already exist'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = GenreSerializer(data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'genre created'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -60,17 +57,14 @@ class GenreDetail(APIView):
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def put(self, request, pk):
         genre_item = get_object_or_404(Genre, pk=pk)
-        genre_name = request.data.get('name')
-        if Genre.objects.filter(name=genre_name).exclude(pk=pk).exists():
-            return Response({'message': 'genre already exist'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = GenreSerializer(genre_item, data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'genre updated'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -100,17 +94,14 @@ class StreamPlatformAPI(APIView):
                          responses={status.HTTP_201_CREATED: openapi.Response(description="stream platform created"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def post(self, request):
-        stream_platform_name = request.data.get('name')
-        if StreamPlatform.objects.filter(name=stream_platform_name).exists():
-            return Response({'message': 'stream platform already exist'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = StreamPlatformSerializer(data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'stream platform created'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -136,9 +127,9 @@ class StreamPlatformDetail(APIView):
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'stream platform updated'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -153,7 +144,15 @@ class StreamPlatformDetail(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class MovieListAPI(ListAPIView):
+class MovieListByGenre(APIView):
+
+    def get(self, request, pk):
+        movie = Movie.objects.filter(genre=pk)
+        serializer = MovieListSerializer(movie, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DetailedMovieListAPI(ListAPIView):
 
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
@@ -177,17 +176,14 @@ class MovieCreateAPI(APIView):
                          responses={status.HTTP_201_CREATED: openapi.Response(description="movie created"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def post(self, request):
-        movie_title = request.data.get('title')
-        if Movie.objects.filter(title=movie_title).exists():
-            return Response({'message': 'movie already exist'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = MovieSerializer(data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'movie created'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -208,16 +204,14 @@ class MovieDetail(APIView):
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def put(self, request, pk):
         movie_title = get_object_or_404(Movie, pk=pk)
-        if Movie.objects.filter(title=movie_title).exclude(pk=pk).exists():
-            return Response({'message': 'movie title already exist'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = MovieSerializer(movie_title, data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'message': 'movie updated'}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
