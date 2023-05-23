@@ -206,7 +206,7 @@ class WatchListSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         movie_title = validated_data.get('movie')
-        print(validated_data)
+        # print(validated_data)
         user = self.context['request'].user
 
         if WatchList.objects.filter(movie__title=movie_title, user=user).exists():
@@ -220,6 +220,24 @@ class WatchListSerializer(serializers.ModelSerializer):
         watchlist = WatchList.objects.create(user=user, movie=movie)
         return watchlist
 
+    def update(self, instance, validated_data):
+        movie_title = validated_data.get('movie')
+        # print(validated_data)
+        user = self.context['request'].user
+
+        if WatchList.objects.filter(movie__title=movie_title, user=user).exists():
+            raise serializers.ValidationError("'{}' already exist in your watchlist".format(movie_title))
+        
+        try:
+            movie = Movie.objects.get(title=movie_title)
+        except Movie.DoesNotExist:
+            raise serializers.ValidationError("'{}' does not exist".format(movie_title))
+        
+        watchlist = WatchList.objects.create(user=user, movie=movie)
+
+        instance.movie = movie
+        instance.save()
+        return instance
 
 class MovieReviewSerializer(serializers.ModelSerializer):
     movie = serializers.StringRelatedField()

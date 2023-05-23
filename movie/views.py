@@ -151,6 +151,8 @@ class StreamPlatformDetail(APIView):
 
 class MovieListByGenre(APIView):
 
+    @swagger_auto_schema(operation_summary="fetch the list of movies based on genre",
+                         responses={status.HTTP_200_OK: openapi.Response(description="successfully fetched")})
     def get(self, request, pk):
         movie = Movie.objects.filter(genre=pk)
         serializer = MovieListSerializer(movie, many=True)
@@ -298,25 +300,18 @@ class WatchListDetail(APIView):
                                                "long as it is valid or in the database",
                          responses={status.HTTP_201_CREATED: openapi.Response(description="watchlist updated"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
-    def put(self, request, pk):
+    def put(self, request, user_id, pk):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to access this watchlist")
         watchlist_item = get_object_or_404(WatchList, user=request.user, pk=pk)
-        movie_title = request.data.get('movie_title', watchlist_item.movie.title)
-        if WatchList.objects.filter(movie__title=movie_title, user=request.user).exclude(pk=pk).exists():
-            return Response({'message': 'this movie already exist'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            movie = Movie.objects.get(title=movie_title)
-        except Movie.DoesNotExist:
-            return Response({'message': 'movie does not exist'}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = WatchListSerializer(watchlist_item, data=request.data)
+        serializer = WatchListSerializer(watchlist_item, data=request.data, context={'request': request})
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user, movie=movie)
-            return Response({'message': 'watchlist updated'}, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

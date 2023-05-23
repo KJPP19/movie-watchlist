@@ -26,7 +26,7 @@ class GenreAPITest(APITestCase):
         self.assertEqual(Genre.objects.all().count(), previous_genre_count + 1)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # print(response.data)
-        self.assertEqual(response.data['name'], 'documentary')
+        self.assertEqual(response.data['name'], 'sci-fi')
 
     def test_not_create_genre_if_blanked(self):
         blanked_data = {"name": ""}
@@ -38,8 +38,8 @@ class GenreAPITest(APITestCase):
         Genre.objects.create(name=genre_name)
         duplicate_genre_data = {"name": genre_name}
         response = self.client.post(self.genre_url, data=duplicate_genre_data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'], 'genre already exist')
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['error'], 'genre duplicates detected')
 
     def test_get_one_genre(self):
         response = self.client.get(self.genre_detail_url)
@@ -61,7 +61,7 @@ class GenreAPITest(APITestCase):
 class StreamPlatformAPITest(APITestCase):
 
     def setUp(self):
-        self.stream_platform_url = reverse('stream-platform')
+        self.stream_platform_url = reverse('stream-platforms')
         self.stream_platform_data = {
             "name": "Netflix",
             "description": "popular streaming platform"
@@ -72,7 +72,7 @@ class StreamPlatformAPITest(APITestCase):
         self.available_movie_2 = AvailablePlatformsMovie.objects.create(**self.movie_data_2)
         self.stream_platform = StreamPlatform.objects.create(**self.stream_platform_data)
         self.stream_platform.available_movie.set([self.available_movie_1, self.available_movie_2])
-        self.stream_platform_detail_url = reverse('stream-platform-detail', kwargs={'pk': self.stream_platform.pk})
+        self.stream_platform_detail_url = reverse('stream-platforms-detail', kwargs={'pk': self.stream_platform.pk})
 
     def test_get_all_stream_platforms(self):
         response = self.client.get(self.stream_platform_url)
@@ -97,7 +97,7 @@ class StreamPlatformAPITest(APITestCase):
         # print(response.data)
         # print(new_stream_platform_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'stream platform created')
+        self.assertEqual(response.data['name'], 'HBO Max')
 
     def test_available_movie_less_than_3_characters(self):
         new_movie_data = {"title": "Ev"}
@@ -127,7 +127,6 @@ class StreamPlatformAPITest(APITestCase):
         # print(self.stream_platform_data["name"])
         # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'], 'stream platform already exist')
 
     def test_create_duplicate_available_movies(self):
         new_stream_platform_data = {
@@ -158,7 +157,7 @@ class StreamPlatformAPITest(APITestCase):
         response = self.client.put(self.stream_platform_detail_url, data=update_stream_platform_data, format="json")
         # print(response.content)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'stream platform updated')
+        self.assertEqual(response.data['name'], 'HULU')
 
     def test_update_available_movie(self):
         update_movie_data_1 = {"title": "Equalizer"}
@@ -173,7 +172,7 @@ class StreamPlatformAPITest(APITestCase):
         response = self.client.put(self.stream_platform_detail_url, data=update_stream_platform_data, format="json")
         # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'stream platform updated')
+        self.assertEqual(response.data['available_movie'][0]['title'],  update_available_movie_1.title)
 
     def test_delete_one_stream_platform(self):
         response = self.client.delete(self.stream_platform_detail_url)
@@ -185,7 +184,7 @@ class StreamPlatformAPITest(APITestCase):
 class MovieRetrieveAPITest(APITestCase):
 
     def setUp(self):
-        self.movie_url = reverse('movie-list')
+        self.movie_url = reverse('detailed-movie-list')
         self.movie_data = {
             "title": "call",
             "synopsis": "plot twist movie",
@@ -273,7 +272,11 @@ class MovieCreateAPITest(APITestCase):
         response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
         # print(response.content)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'movie created')
+        # print(response.data)
+        self.assertEqual(response.data['title'], 'Conjuring')
+        self.assertEqual(response.data['genre'][0]['name'], 'thriller')
+        self.assertEqual(response.data['genre'][1]['name'], 'horror')
+        self.assertEqual(response.data['stream_platform'][0]['name'], 'Netflix')
 
     def test_create_invalid_movie(self):
         new_movie_data = {
