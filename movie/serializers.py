@@ -28,12 +28,6 @@ class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
         fields = ['id', 'name']
-
-    def validate_name(self, value):
-        instance = getattr(self, 'instance', None)
-        if instance and Genre.objects.filter(name=value).exclude(pk=instance.pk).exists():
-            raise serializers.ValidationError("'{}' already exist".format(value))
-        return value
     
 
 class AvailablePlatformsMovieSerializer(serializers.ModelSerializer):
@@ -58,15 +52,14 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
             'available_movie': {'required': False},
         }
 
-    def validate_name(self, value):
-        instance = getattr(self, 'instance', None)
-        if instance and StreamPlatform.objects.filter(name=value).exclude(pk=instance.pk).exists():
-            raise serializers.ValidationError("'{}' already exist".format(value))
-        return value
 
     def create(self, validated_data):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
+
+        if StreamPlatform.objects.filter(name=validated_data['name']).exists():
+            raise serializers.ValidationError("Duplicate stream platform detected. '{}' already exist".format(validated_data['name']))
+
         for available_movie_data in available_movies_data:
 
             try:
@@ -74,7 +67,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
                 if available_movie not in available_movies:
                     available_movies.append(available_movie)
                 else:
-                    raise serializers.ValidationError("Duplicate available movies detected '{}'".format(available_movie_data['title']))
+                    raise serializers.ValidationError("Duplicate available movies detected. '{}' already exist".format(available_movie_data['title']))
             except AvailablePlatformsMovie.DoesNotExist:
                 available_movie = AvailablePlatformsMovie.objects.create(title=available_movie_data['title'])
                 available_movies.append(available_movie)
@@ -85,6 +78,10 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         available_movies_data = validated_data.pop('available_movie')
         available_movies = []
+
+        if StreamPlatform.objects.filter(name=validated_data['name']).exists():
+            raise serializers.ValidationError("Duplicate stream platform detected. '{}' already exist".format(validated_data['name']))
+
         for available_movie_data in available_movies_data:
 
             try:
@@ -92,7 +89,7 @@ class StreamPlatformSerializer(serializers.ModelSerializer):
                 if available_movie not in available_movies:
                     available_movies.append(available_movie)
                 else: 
-                    raise serializers.ValidationError("Duplicate available movies detected '{}'".format(available_movie_data['title']))
+                    raise serializers.ValidationError("Duplicate available movies detected. '{}' already exist".format(available_movie_data['title']))
             except AvailablePlatformsMovie.DoesNotExist:
                 available_movie = AvailablePlatformsMovie.objects.create(title=available_movie_data['title'])
                 available_movies.append(available_movie)
@@ -120,8 +117,6 @@ class MovieSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'genre', 'synopsis', 'runtime', 'stream_platform']
 
     def validate_title(self, value):
-        if Movie.objects.filter(title=value).exists():
-            raise serializers.ValidationError("'{}' already exist".format(value))
         if len(value) < 3:
              raise serializers.ValidationError("title must be atleast 3 characters")
         return value
@@ -134,6 +129,9 @@ class MovieSerializer(serializers.ModelSerializer):
         genres =[]
         streaming_platforms =[]
        
+        if Movie.objects.filter(title=movie_title).exists():
+            raise serializers.ValidationError("'{}' title already exist".format(movie_title))
+
         for genre_name in genres_data:
             try:
                 genre = Genre.objects.get(name=genre_name['name'])
@@ -161,12 +159,15 @@ class MovieSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
 
-        movie_title = validated_data['title']
+        movie_title = validated_data.get('title', instance.title)
         genres_data = validated_data.pop('genre')
         stream_platforms_data = validated_data.pop('stream_platform')
         genres =[]
         streaming_platforms =[]
        
+        if Movie.objects.filter(title=movie_title).exists():
+            raise serializers.ValidationError("'{}' title already exist".format(movie_title))
+
         for genre_name in genres_data:
             try:
                 genre = Genre.objects.get(name=genre_name['name'])
@@ -187,7 +188,7 @@ class MovieSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("'{}' platform does not exist in the database".format(platform_name['name']))
             streaming_platforms.append(streaming_platform)
 
-        instance.title = validated_data.get('title', instance.title)
+        instance.title = movie_title
         instance.synopsis = validated_data.get('synopsis', instance.synopsis)
         instance.runtime = validated_data.get('runtime', instance.runtime)
         instance.save()
@@ -197,11 +198,27 @@ class MovieSerializer(serializers.ModelSerializer):
 
 
 class WatchListSerializer(serializers.ModelSerializer):
-    movie = serializers.StringRelatedField()
+    movie = serializers.CharField()
 
     class Meta:
         model = WatchList
         fields = ['id', 'movie']
+
+    def create(self, validated_data):
+        movie_title = validated_data.get('movie')
+        print(validated_data)
+        user = self.context['request'].user
+
+        if WatchList.objects.filter(movie__title=movie_title, user=user).exists():
+            raise serializers.ValidationError("'{}' already exist in your watchlist".format(movie_title))
+        
+        try:
+            movie = Movie.objects.get(title=movie_title)
+        except Movie.DoesNotExist:
+            raise serializers.ValidationError("'{}' does not exist".format(movie_title))
+        
+        watchlist = WatchList.objects.create(user=user, movie=movie)
+        return watchlist
 
 
 class MovieReviewSerializer(serializers.ModelSerializer):

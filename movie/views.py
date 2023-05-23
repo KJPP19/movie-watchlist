@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import status
 from .models import Genre, Movie, WatchList, MovieReview, StreamPlatform
 from .serializers import GenreSerializer, MovieSerializer, WatchListSerializer, MovieReviewSerializer, \
@@ -30,6 +31,8 @@ class GenreListCreateAPI(APIView):
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")},
                          operation_summary="This endpoint creates a new genre in the database")
     def post(self, request):
+        if Genre.objects.filter(name=request.data['name']).exists():
+            return Response({'error': 'genre duplicates detected'}, status=status.HTTP_409_CONFLICT)
         serializer = GenreSerializer(data=request.data)
 
         try:
@@ -57,6 +60,8 @@ class GenreDetail(APIView):
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
     def put(self, request, pk):
         genre_item = get_object_or_404(Genre, pk=pk)
+        if Genre.objects.filter(name=request.data['name']).exists():
+            return Response({'error': 'genre duplicates detected'}, status=status.HTTP_409_CONFLICT)
         serializer = GenreSerializer(genre_item, data=request.data)
 
         try:
@@ -236,7 +241,10 @@ class WatchListAPI(ListAPIView):
     search_fields = ['movie__title']
 
     def get_queryset(self):
-        return WatchList.objects.filter(user=self.request.user)
+        user_id = self.kwargs['user_id']
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to access this watchlist")
+        return WatchList.objects.filter(user_id=user_id)
 
     @swagger_auto_schema(operation_summary="Fetch the watchlist of a specific user based on the TOKEN provided")
     def get(self, request, *args, **kwargs):
@@ -256,24 +264,17 @@ class WatchListCreateAPI(APIView):
                                                "it should satisfy both permission classes",
                          responses={status.HTTP_201_CREATED: openapi.Response(description="watchlist created"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
-    def post(self, request):
-        movie_title = request.data.get('movie_title')
-        # print(movie_title) verify the input data
-        if WatchList.objects.filter(movie__title=movie_title, user=request.user).exists():
-            return Response({'message': 'movie already exist in your watchlist'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            movie = Movie.objects.get(title=movie_title)
-        except Movie.DoesNotExist:
-            return Response({'message': 'movie does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = WatchListSerializer(data=request.data)
+    def post(self, request, user_id):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to access this watchlist")
+        serializer = WatchListSerializer(data=request.data, context={'request': request})
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user, movie=movie)
-            return Response({'message': 'movie was added to your watchlist'}, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -284,7 +285,9 @@ class WatchListDetail(APIView):
     permission_classes = [IsAuthenticated, IsWatcher]
 
     @swagger_auto_schema(operation_summary="get specific watchlist")
-    def get(self, request, pk):
+    def get(self, request, user_id, pk):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to access this watchlist")
         watchlist_item = get_object_or_404(WatchList, user=request.user, pk=pk)
         serializer = WatchListSerializer(watchlist_item)
         return Response(serializer.data)

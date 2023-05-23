@@ -26,7 +26,7 @@ class GenreAPITest(APITestCase):
         self.assertEqual(Genre.objects.all().count(), previous_genre_count + 1)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # print(response.data)
-        self.assertEqual(response.data['message'], 'genre created')
+        self.assertEqual(response.data['name'], 'documentary')
 
     def test_not_create_genre_if_blanked(self):
         blanked_data = {"name": ""}
@@ -50,7 +50,7 @@ class GenreAPITest(APITestCase):
         update_genre_data = {"name": "romantic comedy"}
         response = self.client.put(self.genre_detail_url, data=update_genre_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'genre updated')
+        self.assertEqual(response.data['name'], 'romantic comedy')
 
     def test_delete_one_genre(self):
         response = self.client.delete(self.genre_detail_url)
