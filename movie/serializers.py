@@ -3,6 +3,7 @@ from rest_framework import permissions
 from .models import *
 
 
+"""Custom permissions"""
 class IsWatcher(permissions.BasePermission):
     message = 'user is not watcher'
 
@@ -239,17 +240,23 @@ class WatchListSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-class MovieReviewSerializer(serializers.ModelSerializer):
+
+class ReviewListSerializer(serializers.ModelSerializer):
     movie = serializers.StringRelatedField()
     reviewed_by = serializers.StringRelatedField()
 
     class Meta:
         model = MovieReview
-        fields = ['id', 'reviewed_by', 'movie', 'review', 'rating']
-        extra_kwargs = {
-            'reviewed_by': {'required': False}
-        }
+        fields = ['id', 'movie', 'review', 'rating', 'reviewed_by']
 
+
+class MovieReviewSerializer(serializers.ModelSerializer):
+    movie = serializers.CharField()
+
+    class Meta:
+        model = MovieReview
+        fields = ['id', 'movie', 'review', 'rating']
+        
     def validate(self, data):
         if data['rating'] > 5 or data['rating'] < 1:
             raise serializers.ValidationError("rating must not exceed to 5 and not less than 1")
@@ -257,4 +264,42 @@ class MovieReviewSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("review should have at least 10 characters")
         return data
 
+    def create(self, validated_data):
+        movie_title = validated_data.get('movie')
+        reviewed_by = self.context['request'].user
+        review = validated_data.get('review')
+        rating = validated_data.get('rating')
+
+        if MovieReview.objects.filter(movie__title=movie_title, reviewed_by=reviewed_by).exists():
+            raise serializers.ValidationError("'{}' already exist in your reviews".format(movie_title))
+        
+        try:
+            movie = Movie.objects.get(title=movie_title)
+        except Movie.DoesNotExist:
+            raise serializers.ValidationError("'{}' does not exist".format(movie_title))
+        
+        movie_review = MovieReview.objects.create(movie=movie, reviewed_by=reviewed_by, review=review, rating=rating)
+        return movie_review
+    
+    def update(self, instance, validated_data):
+        movie_title = validated_data.get('movie')
+        reviewed_by = self.context['request'].user
+        review = validated_data.get('review')
+        rating = validated_data.get('rating')
+
+        if MovieReview.objects.filter(movie__title=movie_title, reviewed_by=reviewed_by).exists():
+            raise serializers.ValidationError("'{}' already exist in your reviews".format(movie_title))
+        
+        try:
+            movie = Movie.objects.get(title=movie_title)
+        except Movie.DoesNotExist:
+            raise serializers.ValidationError("'{}' does not exist".format(movie_title))
+        
+        movie_review = MovieReview.objects.create(movie=movie, reviewed_by=reviewed_by, review=review, rating=rating)
+
+        instance.movie = movie
+        instance.review = review
+        instance.rating = rating
+        instance.save()
+        return instance
 

@@ -1,11 +1,12 @@
 from django.shortcuts import render
+from user.models import CustomUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import status
 from .models import Genre, Movie, WatchList, MovieReview, StreamPlatform
 from .serializers import GenreSerializer, MovieSerializer, WatchListSerializer, MovieReviewSerializer, \
-    StreamPlatformSerializer, MovieListSerializer, IsWatcher, IsReviewer
+    StreamPlatformSerializer, MovieListSerializer, IsWatcher, IsReviewer, ReviewListSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
@@ -316,7 +317,9 @@ class WatchListDetail(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @swagger_auto_schema(operation_summary="delete specific movie in watchlist")
-    def delete(self, request, pk):
+    def delete(self, request, user_id, pk):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to delete movie")
         watchlist_item = get_object_or_404(WatchList, user=request.user, pk=pk)
 
         try:
@@ -329,7 +332,7 @@ class WatchListDetail(APIView):
 class ReviewsAPI(ListAPIView):
 
     queryset = MovieReview.objects.all()
-    serializer_class = MovieReviewSerializer
+    serializer_class = ReviewListSerializer
     pagination_class = PageNumberPagination
     filter_backends = (SearchFilter, OrderingFilter)
     search_fields = ['movie__title', 'review', 'reviewed_by__email']
@@ -355,23 +358,17 @@ class ReviewMovieAPI(APIView):
                                                "this raises an error if these conditions were not met, ",
                          responses={status.HTTP_201_CREATED: openapi.Response(description="review created"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
-    def post(self, request):
-        movie_title = request.data.get('movie_title')
-        if MovieReview.objects.filter(movie__title=movie_title, reviewed_by=request.user).exists():
-            return Response({'message': 'movie already exist in your review'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            movie = Movie.objects.get(title=movie_title)
-        except Movie.DoesNotExist:
-            return Response({'message': 'movie does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = MovieReviewSerializer(data=request.data)
+    def post(self, request, user_id):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to access this review")
+        serializer = MovieReviewSerializer(data=request.data, context={'request': request})
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(reviewed_by=request.user, movie=movie)
-            return Response({'message': 'review for the movie has been added'}, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -381,7 +378,7 @@ class ReviewDetail(APIView):
     @swagger_auto_schema(operation_summary="fetch specific movie review")
     def get(self, request, pk):
         review = get_object_or_404(MovieReview, pk=pk)
-        serializer = MovieReviewSerializer(review)
+        serializer = ReviewListSerializer(review)
         return Response(serializer.data)
 
 
@@ -396,21 +393,25 @@ class ReviewDetailPutDelete(APIView):
                                                "update and delete movie reviews",
                          responses={status.HTTP_201_CREATED: openapi.Response(description="review updated"),
                                     status.HTTP_400_BAD_REQUEST: openapi.Response(description="bad request")})
-    def put(self, request, pk):
-        review = get_object_or_404(MovieReview, reviewed_by=request.user, pk=pk)
-        serializer = MovieReviewSerializer(review, data=request.data)
+    def put(self, request, user_id, pk):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to update this review")
+        review_item = get_object_or_404(MovieReview, reviewed_by=request.user, pk=pk)
+        serializer = MovieReviewSerializer(review_item, data=request.data, context={'request': request})
 
         try:
             serializer.is_valid(raise_exception=True)
-            serializer.save(reviewed_by=request.user)
-            return Response({'message': 'review updated'}, status=status.HTTP_200_OK)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except serializers.ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @swagger_auto_schema(operation_summary="delete specific movie review")
-    def delete(self, request, pk):
+    def delete(self, request, user_id, pk):
+        if self.request.user.id != user_id:
+            raise PermissionDenied("you are not authorized to delete this review")
         review = get_object_or_404(MovieReview, reviewed_by=request.user, pk=pk)
 
         try:

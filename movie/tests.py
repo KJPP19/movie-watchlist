@@ -1,8 +1,17 @@
 from django.test import TestCase
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.urls import reverse
-from .models import Genre, StreamPlatform, AvailablePlatformsMovie, Movie
+from .models import Genre, StreamPlatform, AvailablePlatformsMovie, Movie, WatchList
+from user.models import CustomUser
+
+
+"""class MultipleRequest(TestCase):
+    def test_200_request_get_all_movies(self):
+         client = APIClient()
+         for _ in range(200):
+            response = client.get('/watchlist/v1/movies/')
+            self.assertEqual(response.status_code, 200)"""
 
 
 class GenreAPITest(APITestCase):
@@ -340,5 +349,74 @@ class MovieCreateAPITest(APITestCase):
             ]
         }
         response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
-        # print(response.data)
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error']['title'][0], 'title must be atleast 3 characters')
+
+
+class WatchListApiTest(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(email='testuser@sample.com', password='123456789',
+                                                   role='watcher')
+        self.movie = Movie.objects.create(title='Conjuring', runtime='147')
+        self.watchlist = WatchList.objects.create(user=self.user, movie=self.movie)
+        self.watchlist_url = reverse('watchlist', kwargs={'user_id': self.user.id})
+    
+    def test_get_user_own_watchlist(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.watchlist_url)
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_user_role_is_not_watcher(self):
+        self.new_user = CustomUser.objects.create_user(email='testuser2@sample.com', password='123456789',
+                                                       role='visitor')
+        self.client.force_authenticate(user=self.new_user)
+        self.watchlist = WatchList.objects.create(user=self.new_user, movie=self.movie)
+        response = self.client.get(self.watchlist_url)
+        # print(response.data)
+        # print(response.status_code)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['detail'], 'user is not watcher')
+
+    def test_get_other_user_watchlist(self):
+        self.new_user = CustomUser.objects.create_user(email='testuser3@sample.com', password='123456789',
+                                                   role='watcher')
+        self.client.force_authenticate(user=self.new_user)
+        response = self.client.get(self.watchlist_url)
+        # print(response.data, response.status_code)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['detail'], "you are not authorized to access this watchlist")
+    
+
+class WatchListCreateApiTest(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(email='testuser@sample.com', password='123456789',
+                                                   role='watcher')
+        self.movie_data_1 = Movie.objects.create(title='Conjuring', runtime='147') # available movie for adding to user's watchlist
+        self.movie_data_2 = Movie.objects.create(title='John Wick', runtime='125') # available movie for adding to user's watchlist
+        self.watchlist = WatchList.objects.create(user=self.user, movie=self.movie_data_1)
+        self.add_to_watchlist_url = reverse('watchlist-add', kwargs={'user_id': self.user.id})
+    
+    def test_post_valid_movie_to_watchlist(self):
+        new_watchlist_data = {
+            "movie": "John Wick"
+        }
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.add_to_watchlist_url, data=new_watchlist_data, format="json")
+        # print(response.status_code, response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['movie'], 'John Wick')
+        self.assertEqual(WatchList.objects.count(), 2)
+    
+    def test_post_invalid_movie_to_watchlist(self):
+        invalid_watchlist_data = {
+            "movie": "Sinister"
+        }
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.add_to_watchlist_url, data=invalid_watchlist_data, format="json")
+        # print(response.status_code, response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['error'][0]), "'{}' does not exist".format(invalid_watchlist_data['movie']))
+        self.assertEqual(WatchList.objects.count(), 1)
