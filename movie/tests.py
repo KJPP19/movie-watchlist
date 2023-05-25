@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.urls import reverse
-from .models import Genre, StreamPlatform, AvailablePlatformsMovie, Movie, WatchList
+from .models import Genre, StreamPlatform, AvailablePlatformsMovie, Movie, WatchList, MovieReview
 from user.models import CustomUser
 
 
@@ -27,6 +27,7 @@ class GenreAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
         self.assertEqual(response.data[0]["name"], "documentary")
+        self.assertEqual(Genre.objects.count(), 1)
 
     def test_create_genre(self):
         new_genre_data = {"name": "sci-fi"}
@@ -36,11 +37,14 @@ class GenreAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # print(response.data)
         self.assertEqual(response.data['name'], 'sci-fi')
+        self.assertEqual(Genre.objects.count(), 2)
 
     def test_not_create_genre_if_blanked(self):
         blanked_data = {"name": ""}
         response = self.client.post(self.genre_url, data=blanked_data)
+        # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error']['name'][0], 'This field may not be blank.')
 
     def test_create_duplicate_genre(self):
         genre_name = "comedy"
@@ -286,6 +290,7 @@ class MovieCreateAPITest(APITestCase):
         self.assertEqual(response.data['genre'][0]['name'], 'thriller')
         self.assertEqual(response.data['genre'][1]['name'], 'horror')
         self.assertEqual(response.data['stream_platform'][0]['name'], 'Netflix')
+        self.assertEqual(Movie.objects.count(), 2)
 
     def test_create_invalid_movie(self):
         new_movie_data = {
@@ -349,7 +354,7 @@ class MovieCreateAPITest(APITestCase):
             ]
         }
         response = self.client.post(self.movie_create_url, data=new_movie_data, format="json")
-        print(response.data)
+        # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['error']['title'][0], 'title must be atleast 3 characters')
 
@@ -420,3 +425,52 @@ class WatchListCreateApiTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(str(response.data['error'][0]), "'{}' does not exist".format(invalid_watchlist_data['movie']))
         self.assertEqual(WatchList.objects.count(), 1)
+
+
+class MovieReviewListApiTest(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(email='testuser@sample.com', password='123456789',
+                                                   role='reviewer')
+        self.movie_data_1 = Movie.objects.create(title='Conjuring', runtime='147') # available movie to review
+        self.movie_data_2 = Movie.objects.create(title='John Wick', runtime='125') # available movie to review
+        self.movie_review = MovieReview.objects.create(reviewed_by=self.user, 
+                                                       movie=self.movie_data_1, review="real life story horror movie", rating=5)
+        """since creating a movie review needs users to be authenticated and viewing the movie review list is public,
+            separate URL for adding movie review and viewing movie review list"""
+        self.add_movie_review_url = reverse('add-movie-review', kwargs={'user_id': self.user.id})
+        self.movie_review_list_url = reverse('movie-reviews-list')
+
+    def test_get_movie_reviews(self):
+        response = self.client.get(self.movie_review_list_url)
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'][0]['movie'], 'Conjuring')
+        self.assertEqual(response.data['results'][0]['reviewed_by'], 'testuser@sample.com')
+        self.assertEqual(response.data['count'], 1)
+
+    def test_add_valid_movie_review(self):
+        self.client.force_authenticate(user=self.user)
+        new_review_data = {
+            "movie": "John Wick",
+            "review": "full of action and good story",
+            "rating": 4
+        }
+        response = self.client.post(self.add_movie_review_url, data=new_review_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['movie'], 'John Wick')
+        self.assertEqual(MovieReview.objects.count(), 2)
+
+    def test_add_invalid_movie_review(self):
+        self.client.force_authenticate(user=self.user)
+        """John Wick 2 was not in the database, available movies to review are Conjuring and John Wick"""
+        invalid_review_data = {
+            "movie": "John Wick 2",
+            "review": "full of action and good story",
+            "rating": 5
+        }
+        response = self.client.post(self.add_movie_review_url, data=invalid_review_data, format="json")
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['error'][0]), "'{}' does not exist".format(invalid_review_data['movie']))
+        self.assertEqual(MovieReview.objects.count(), 1)

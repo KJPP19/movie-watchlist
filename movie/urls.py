@@ -17,8 +17,8 @@ urlpatterns = [
     path('user/<int:user_id>/watch-list/', WatchListAPI.as_view(), name='watchlist'),
     path('user/<int:user_id>/watch-list/add/', WatchListCreateAPI.as_view(), name='watchlist-add'),
     path('user/<int:user_id>/watch-list/<int:pk>/', WatchListDetail.as_view()),
-    path('movie-reviews/', ReviewsAPI.as_view()),
-    path('user/<int:user_id>/movie-reviews/add/', ReviewMovieAPI.as_view()),
+    path('movie-reviews/', ReviewsAPI.as_view(), name='movie-reviews-list'),
+    path('user/<int:user_id>/movie-reviews/add/', ReviewMovieAPI.as_view(), name='add-movie-review'),
     path('movie-reviews/<int:pk>/', ReviewDetail.as_view()),
     path('user/<int:user_id>/movie-reviews/<int:pk>/', ReviewDetailPutDelete.as_view())
 ]
